@@ -1,5 +1,20 @@
 # CountViews
-Radio CICAP check view count by Dasara Shullani.
+
+Youtube view count. It reports views information on a given Youtube playlist.
+Copyright (C) 2020  Dasara Shullani
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 ## Usage
 
@@ -95,8 +110,3 @@ optional arguments:
   --playlist-filename PLAYLIST_FILENAME
                         Txt filename of playlist video urls.
 ```
-
-
-
-
-
