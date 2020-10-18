@@ -19,13 +19,15 @@
 
 import argparse
 from datetime import datetime
-import os
 import pandas as pd
+from random import uniform
+import sys
+from time import sleep
 import youtube_dl
 
 
 def get_playlist_urls(playlist_url, playlist_filename):
-    ydl_opts = {"quiet":True}
+    ydl_opts = {"quiet": True}
     res = []
     with youtube_dl.YoutubeDL(ydl_opts) as ydl:
         json_info = ydl.extract_info(playlist_url, download=False)
@@ -38,46 +40,54 @@ def get_playlist_urls(playlist_url, playlist_filename):
 
 
 def get_view_count(video_url):
-    ydl_opts = {"quiet":True}
-    res = {'title':'', 'count':-1, 'url':''}
+    # take a random nap (2s to 5s)
+    sleep(uniform(2, 5))
+    ydl_opts = {"quiet": True}
+    res = {'title': '', 'count': -1, 'url': ''}
     with youtube_dl.YoutubeDL(ydl_opts) as ydl:
         json_info = ydl.extract_info(video_url, download=False)
-        res['title']= json_info['title']
+        res['title'] = json_info['title']
         res['count'] = json_info['view_count']
         res['url'] = json_info['webpage_url']
         res['upload_date'] = int(json_info['upload_date'])
-        res['timestamp'] = get_date_time_string()
     return res
+
 
 def get_date_time_string():
     obj_date = datetime.now()
     o_str = obj_date.strftime("%d-%b-%Y %H:%M")
     return o_str
 
+
 def write_report(df, report_name):
     df.to_csv(report_name, sep=';', index=False)
 
+
 def create_report(file_url_list, report_name=None):
     vc_list = []
-    with open(file_url_list, 'r') as f:
-        for item in f:
-            video_url = item.strip()
-            vc = get_view_count(video_url)
-            if vc['count'] > -1:
-                note_str = "{}; {}; {}; {}".format(vc['title'], vc['url'],
-                                                   vc['timestamp'],
-                                                   vc['count'])
-                tmp_count = vc['count']
-                tmp_date = vc['timestamp']
-                vc[tmp_date] = tmp_count
-                vc.pop('timestamp')
-                vc.pop('count')
-                vc_list.append(vc)
-                print(note_str)
+    timestamp_value = get_date_time_string()
+    try:
+        with open(file_url_list, 'r') as f:
+            for item in f:
+                video_url = item.strip()
+                vc = get_view_count(video_url)
+                if vc['count'] > -1:
+                    note_str = "{}; {}; {}; {}".format(vc['title'], vc['url'],
+                                                       get_date_time_string(),
+                                                       vc['count'])
+                    vc[timestamp_value] = vc['count']
+                    vc.pop('count')
+                    vc_list.append(vc)
+                    print(note_str)
+    except Exception as e:
+        print(e)
+        sys.exit(1)
+
     df = pd.DataFrame(vc_list)
     if report_name is not None and len(vc_list) > 0:
         write_report(df, report_name)
     return df
+
 
 def update_report(file_url_list, report_name):
     df = create_report(file_url_list)
@@ -90,20 +100,11 @@ def update_report(file_url_list, report_name):
 
 
 def get_parser():
-    args_parser = argparse.ArgumentParser(description='Radio CICAP YouTube count views.')
-    #args_parser.add_argument('--save-playlist-urls', action='store_true', help='Save playlist urls flag. Use --video-url to specify the playlist.')
-    #args_parser.add_argument('--save-playlist-report', action='store_true', help='Save playlist report flag. Use --file-url-list to specify the txt playlist.')
-    #args_parser.add_argument('--update-report', type=str, help='Update report with current views. Use --file-url-list to specify the txt playlist.')
-
-    #g = args_parser.add_mutually_exclusive_group(required=True)
-    #g.add_argument('--video-url', type=str, help='YouTube video URL.')
-    #g.add_argument('--file-url-list', type=str, help='TxT file of YouTube video URLs.')
-
+    args_parser = argparse.ArgumentParser(description='YouTube count views.')
     subparsers = args_parser.add_subparsers(help='Count views sub-commands help', dest='cmd')
     sp_cp = subparsers.add_parser('create-playlist', help='Create YouTube urls file from playlist link.')
     sp_cr = subparsers.add_parser('create-report', help='Create Views Report from playlist urls.')
     sp_ur = subparsers.add_parser('update-report', help='Update Views Report from playlist urls and views report.')
-
 
     # create playlist
     sp_cp.add_argument('--playlist-url', type=str, required=True, help='Youtube playlist link.')
