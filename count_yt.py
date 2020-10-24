@@ -26,7 +26,7 @@ from time import sleep
 import youtube_dl
 
 
-def get_playlist_urls(playlist_url, playlist_filename):
+def get_playlist_urls(playlist_url):
     ydl_opts = {"quiet": True}
     res = []
     with youtube_dl.YoutubeDL(ydl_opts) as ydl:
@@ -34,6 +34,11 @@ def get_playlist_urls(playlist_url, playlist_filename):
         if 'entries' in json_info:
             for item in json_info['entries']:
                 res.append(item['webpage_url'])
+    return res, json_info
+
+
+def write_playlist_urls(playlist_url, playlist_filename):
+    res = get_playlist_urls(playlist_url)
     with open(playlist_filename, 'a+') as f:
         for item in res:
             f.write(item + "\n")
@@ -89,8 +94,52 @@ def create_report(file_url_list, report_name=None):
     return df
 
 
+def create_report_from_playlist_url(playlist_url, report_name=None):
+    vc_list = []
+    timestamp_value = get_date_time_string()
+
+    try:
+        res, json_info = get_playlist_urls(playlist_url)
+    except Exception as e:
+        print(e)
+        sys.exit(1)
+
+    res_entries = json_info["entries"]
+    for item in res_entries:
+        vc = {}
+        vc['count'] = -1
+        vc['title'] = item['title']
+        vc['count'] = item['view_count']
+        vc['url'] = item['webpage_url']
+        vc['upload_date'] = int(item['upload_date'])
+        if vc['count'] > -1:
+            note_str = "{}; {}; {}; {}".format(vc['title'], vc['url'],
+                                               get_date_time_string(),
+                                               vc['count'])
+            vc[timestamp_value] = vc['count']
+            vc.pop('count')
+            vc_list.append(vc)
+            print(note_str)
+
+    df = pd.DataFrame(vc_list)
+    if report_name is not None and len(vc_list) > 0:
+        write_report(df, report_name)
+    return df
+
+
+
 def update_report(file_url_list, report_name):
     df = create_report(file_url_list)
+    origin = pd.read_csv(report_name, sep=';')
+    a = pd.merge(origin, df, how='right', on=['title', 'url', 'upload_date'])
+    # check the last 2 columns, if different update
+    if any(a[df.columns[-1]] != a[origin.columns[-1]]):
+        write_report(a, report_name)
+        print(a)
+
+
+def update_report_v2(playlist_url, report_name):
+    df = create_report_from_playlist_url(playlist_url)
     origin = pd.read_csv(report_name, sep=';')
     a = pd.merge(origin, df, how='right', on=['title', 'url', 'upload_date'])
     # check the last 2 columns, if different update
@@ -116,8 +165,11 @@ def get_parser():
 
     # update report
     sp_ur.add_argument('--report-filename', type=str, required=True, help="CSV filename of view's count.")
-    sp_ur.add_argument('--playlist-filename', type=str, required=True, help='Txt filename of playlist video urls.')
+    g = sp_ur.add_mutually_exclusive_group(required=True)
+    g.add_argument('--playlist-filename', type=str, help='Txt filename of playlist video urls. Use for short playlists.')
+    g.add_argument('--playlist-url', type=str, help='Youtube playlist link.. Use for long playlists.')
     return args_parser
+
 
 
 def main():
@@ -127,15 +179,20 @@ def main():
     if args.cmd == 'create-playlist':
         pl_url = args.playlist_url
         pl_txt = args.playlist_filename
-        get_playlist_urls(pl_url, pl_txt)
+        write_playlist_urls(pl_url, pl_txt)
     elif args.cmd == 'create-report':
         pl_txt = args.playlist_filename
         rp_csv = args.report_filename
         create_report(pl_txt, rp_csv)
     elif args.cmd == 'update-report':
-        pl_txt = args.playlist_filename
-        rp_csv = args.report_filename
-        update_report(pl_txt, rp_csv)
+        if args.playlist_filename is not None:
+            pl_txt = args.playlist_filename
+            rp_csv = args.report_filename
+            update_report(pl_txt, rp_csv)
+        else:
+            pl_url = args.playlist_url
+            rp_csv = args.report_filename
+            update_report_v2(pl_url, rp_csv)
     else:
         print('Wrong usage. Please check the --help option.')
 
